@@ -12,17 +12,18 @@ Internally the code is **modular**: configuration loading, structured logging, t
 2. [Architecture overview](#architecture-overview)
 3. [Prerequisites](#prerequisites)
 4. [Installation](#installation)
-5. [Configuration](#configuration)
-6. [Data files and persistence](#data-files-and-persistence)
-7. [Running the bot (CLI)](#running-the-bot-cli)
-8. [Local admin panel](#local-admin-panel)
-9. [Admin UI screenshots](#admin-ui-screenshots)
-10. [Admin HTTP API (summary)](#admin-http-api-summary)
-11. [Helper script: `dev.sh`](#helper-script-devsh)
-12. [Tests and quality](#tests-and-quality)
-13. [Troubleshooting](#troubleshooting)
-14. [Documentation map](#documentation-map)
-15. [Compliance](#compliance)
+5. [Running on Android (Termux)](#running-on-android-termux)
+6. [Configuration](#configuration)
+7. [Data files and persistence](#data-files-and-persistence)
+8. [Running the bot (CLI)](#running-the-bot-cli)
+9. [Local admin panel](#local-admin-panel)
+10. [Admin UI screenshots](#admin-ui-screenshots)
+11. [Admin HTTP API (summary)](#admin-http-api-summary)
+12. [Helper script: `dev.sh`](#helper-script-devsh)
+13. [Tests and quality](#tests-and-quality)
+14. [Troubleshooting](#troubleshooting)
+15. [Documentation map](#documentation-map)
+16. [Compliance](#compliance)
 
 ---
 
@@ -102,6 +103,122 @@ Internally the code is **modular**: configuration loading, structured logging, t
    ```bash
    python bot.py dry-run --config config.yaml
    ```
+
+---
+
+## Running on Android (Termux)
+
+[Termux](https://termux.dev/) gives you a Linux-like environment on Android. You can run the **Python bot** and **`run_admin.py`** on the device; the admin UI opens in the phone browser at `http://127.0.0.1:<port>/`.
+
+### 1. Install Termux
+
+- Prefer **Termux from [F-Droid](https://f-droid.org/packages/com.termux/)** (current maintenance model).  
+- Open Termux once so it can unpack; run **`termux-setup-storage`** if you want shared storage under `~/storage/`.
+
+### 2. Packages
+
+```bash
+pkg update && pkg upgrade -y
+pkg install -y python git openssl
+# Optional: compilers for pip wheels that build from source
+pkg install -y build-essential
+```
+
+Python on Termux is often **3.11+**; confirm with `python3 --version`.
+
+### 3. Get the project
+
+```bash
+cd ~
+git clone <your-repo-url> twitter_bot
+cd twitter_bot
+```
+
+(Or copy the project into `~/twitter_bot` with a file manager + zip.)
+
+### 4. Virtual environment and dependencies
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+If **`pip install` fails** on a package with native code, ensure **`build-essential`** is installed and retry; on rare builds you may need extra `pkg install` libraries—check the error line from the compiler.
+
+### 5. Config and data
+
+```bash
+cp config.example.yaml config.yaml
+# Edit with nano/vim; set paths under the project (defaults like data/ work)
+nano config.yaml
+```
+
+Keep **`config.yaml`** only on the device; do not sync secrets to cloud backups you do not trust.
+
+### 6. Run the bot (CLI)
+
+With venv activated and `cd` in the project root:
+
+```bash
+python bot.py bootstrap --config config.yaml
+python bot.py dry-run --config config.yaml
+python bot.py start --config config.yaml
+```
+
+**Long sessions:** Android may throttle background work. In system settings, **disable battery optimization** for Termux where possible, and run under **`tmux`** so you can detach without stopping the process:
+
+```bash
+pkg install -y tmux
+tmux new -s bot
+source .venv/bin/activate
+python bot.py start --config config.yaml
+# Detach: Ctrl+b then d
+```
+
+### 7. Admin panel on the phone
+
+```bash
+source .venv/bin/activate
+python run_admin.py
+```
+
+Default: **http://127.0.0.1:8080/** in **Chrome (or Firefox) on the same device**.  
+Another port:
+
+```bash
+ADMIN_PORT=9090 python run_admin.py
+```
+
+**Built SPA:** install Node, build once, then start the server:
+
+```bash
+pkg install -y nodejs-lts
+cd admin-ui && npm ci && npm run build && cd ..
+python run_admin.py
+```
+
+**Dev UI with Vite** (optional): after changing `admin-ui/vite.config.ts` proxy targets if you changed `ADMIN_PORT`, run `npm run dev` in `admin-ui/` and open the URL Vite prints (usually port **5173**).
+
+### 8. `dev.sh` on Termux
+
+`dev.sh` is a Bash script; it works if **`bash`** is available (`pkg install bash` if needed):
+
+```bash
+bash dev.sh setup
+bash dev.sh bootstrap
+bash dev.sh admin
+```
+
+### Limitations and tips
+
+| Topic | Notes |
+|--------|--------|
+| **Battery / Doze** | Long-running loops may stall when the screen is off; use wake lock or adjust Android battery settings for Termux. |
+| **Network** | Same Wi‑Fi/cellular rules as any mobile client; X and OpenRouter must be reachable from the device. |
+| **Storage** | SQLite and logs live under the project `data/` and `logs/`; Termux home is under `/data/data/com.termux/files/home/`. |
+| **Not a server for other PCs** | Binding `127.0.0.1` is only on-device. Exposing `0.0.0.0` on Termux is possible but risky without firewall/TLS—prefer SSH tunnel or VPN if you need remote access. |
 
 ---
 
@@ -370,6 +487,7 @@ External APIs are **mocked**. If coverage or SQLite errors mention a corrupt `.c
 | **Admin `401`** | Match `ADMIN_TOKEN` in **Settings** (or `Authorization` header), or unset token for local-only dev. |
 | **WebSocket disconnects** | With token enabled, pass `token` query on `/ws/events`. |
 | **Two bots fighting** | Avoid running **`bot.py start`** and the admin **Start loop** against the same `bot.db` / state unless intentional. |
+| **Termux / Android** | `pip install` fails compiling wheels → `pkg install build-essential` and retry. Loop stops when screen off → disable battery optimization for Termux, use **`tmux`**, see [Running on Android (Termux)](#running-on-android-termux). **`npm` / `node` missing** → `pkg install nodejs-lts`. |
 | **pytest / coverage SQLite noise** | `rm -f .coverage` |
 
 ---
