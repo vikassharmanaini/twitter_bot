@@ -1,5 +1,13 @@
 # Changelog
 
+## Local admin panel — 2026-04-26
+
+- FastAPI app (`src/admin/`, `run_admin.py`): REST for config (masked GET, atomic save), runtime, targets, replies/stats/db summary, maintenance jobs; WebSocket `/ws/events` for logs and status; optional `ADMIN_TOKEN`; static SPA from `admin-ui/dist` when built.
+- React + Vite + TypeScript + Tailwind SPA in `admin-ui/` (Dashboard, Configuration, Activity, Targets, Tools, Settings).
+- `BotRuntimeService` background thread with cooperative stop; logging bridge via `BroadcastLogHandler`.
+- `KnowledgeStore.table_row_counts()` for admin DB summary.
+- Tests: `tests/test_admin_api.py`, `tests/conftest.py` (singleton reset); documentation: `docs/ADMIN_PANEL.md`, README admin section.
+
 ## Initial implementation — 2026-04-26
 
 - Phase 1: `config_loader`, `logger`, `twitter_client`, `target_manager`, tests, and project scaffold.

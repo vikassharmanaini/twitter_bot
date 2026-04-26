@@ -15,3 +15,5 @@ venv/
 *.egg-info/
 dist/
 build/
+admin-ui/node_modules/
+admin-ui/dist/

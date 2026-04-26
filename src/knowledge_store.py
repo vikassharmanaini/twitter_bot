@@ -244,6 +244,15 @@ class KnowledgeStore:
         )
         self._conn.commit()
 
+    def table_row_counts(self) -> dict[str, int]:
+        """Row counts per table for admin dashboards."""
+        tables = ("replied_tweets", "seen_topics", "daily_stats", "knowledge_snippets")
+        out: dict[str, int] = {}
+        for t in tables:
+            row = self._conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()
+            out[t] = int(row[0]) if row else 0
+        return out
+
     def export_weekly_summary_json(self) -> dict[str, Any]:
         rows = self.weekly_summary_rows()
         return {

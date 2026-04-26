@@ -54,3 +54,12 @@ def test_clear_history(tmp_path: Path) -> None:
     ks.clear_replied_history()
     assert not ks.has_replied_to("x")
     ks.close()
+
+
+def test_table_row_counts(tmp_path: Path) -> None:
+    ks = _store(tmp_path)
+    ks.record_reply("a", "u", "t", datetime.now(timezone.utc), {})
+    c = ks.table_row_counts()
+    assert c["replied_tweets"] >= 1
+    assert "knowledge_snippets" in c
+    ks.close()
