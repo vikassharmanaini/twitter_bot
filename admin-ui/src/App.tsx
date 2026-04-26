@@ -190,52 +190,53 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="flex min-h-[100dvh] lg:min-h-screen">
-        {/* Desktop sidebar */}
-        <aside className="relative hidden w-64 shrink-0 flex-col gap-8 border-r border-border/50 bg-card/40 p-6 backdrop-blur-xl lg:flex xl:w-72">
-          <div className="absolute inset-0 bg-mesh opacity-50" aria-hidden />
-          <div className="relative">
+      {/* Desktop: viewport-tall shell; sidebar fixed height; only main scrolls */}
+      <div className="flex min-h-[100dvh] lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+        <aside className="relative hidden h-auto w-64 shrink-0 flex-col overflow-hidden border-r border-border/50 bg-card/40 p-6 backdrop-blur-xl lg:flex lg:h-[100dvh] lg:max-h-[100dvh] xl:w-72">
+          <div className="pointer-events-none absolute inset-0 bg-mesh opacity-50" aria-hidden />
+          <div className="relative shrink-0">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
               Control
             </div>
             <h1 className="mt-2 font-display text-xl font-bold text-gradient">Twitter Bot</h1>
             <p className="mt-1 text-xs text-muted-foreground">Local admin · full visibility</p>
           </div>
-          <nav className="relative flex flex-col gap-1">
+          <nav className="relative mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-hidden overscroll-y-contain">
             <NavList />
           </nav>
-          <div className="relative mt-auto flex items-center justify-between gap-2 pt-6">
+          <div className="relative mt-4 flex shrink-0 items-center justify-between gap-2 border-t border-border/40 pt-4">
             <ThemeToggle />
             <span className="text-[10px] text-muted-foreground">Theme</span>
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col pb-20 lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden lg:pb-0">
           <DesktopAppBar pathname={location.pathname} />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={reduce ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? undefined : { opacity: 0, y: -6 }}
-              transition={{ duration: reduce ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="flex-1"
-            >
-              <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-                <Routes location={location}>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/config" element={<ConfigPage />} />
-                  <Route path="/targets" element={<TargetsPage />} />
-                  <Route path="/activity" element={<ActivityPage />} />
-                  <Route path="/tools" element={<ToolsPage />} />
-                  <Route path="/performance" element={<PerformancePage />} />
-                  <Route path="/instructions" element={<InstructionsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </div>
-            </motion.div>
-          </AnimatePresence>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain lg:min-h-0">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={reduce ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, y: -6 }}
+                transition={{ duration: reduce ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+                  <Routes location={location}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/config" element={<ConfigPage />} />
+                    <Route path="/targets" element={<TargetsPage />} />
+                    <Route path="/activity" element={<ActivityPage />} />
+                    <Route path="/tools" element={<ToolsPage />} />
+                    <Route path="/performance" element={<PerformancePage />} />
+                    <Route path="/instructions" element={<InstructionsPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </main>
       </div>
 
