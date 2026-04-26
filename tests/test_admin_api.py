@@ -53,6 +53,7 @@ def test_admin_read_apis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
             "/api/replies/recent",
             "/api/db/summary",
             "/api/stats/weekly",
+            "/api/stats/performance",
             "/api/runtime/status",
         ):
             r = c.get(path)

@@ -56,6 +56,31 @@ def test_clear_history(tmp_path: Path) -> None:
     ks.close()
 
 
+def test_daily_stats_series_and_engagement_list(tmp_path: Path) -> None:
+    ks = _store(tmp_path)
+    assert ks.daily_stats_series(5) == []
+    ks.increment_daily_replies(1)
+    ks.increment_daily_stat(accounts_checked=2, tokens_used=100, errors=0)
+    series = ks.daily_stats_series(3)
+    assert len(series) == 1
+    assert series[0]["replies_posted"] == 1
+    assert series[0]["accounts_checked"] == 2
+    assert series[0]["tokens_used"] == 100
+    ks.record_reply(
+        "tw1",
+        "SomeUser",
+        "hello",
+        datetime.now(timezone.utc),
+        {"engagement_score": 7, "engagement_received": {"like_count": 3}},
+    )
+    rows = ks.list_replies_with_engagement(10)
+    assert len(rows) == 1
+    assert rows[0]["tweet_id"] == "tw1"
+    assert rows[0]["engagement_score"] == 7
+    assert rows[0]["engagement_received"] == {"like_count": 3}
+    ks.close()
+
+
 def test_table_row_counts(tmp_path: Path) -> None:
     ks = _store(tmp_path)
     ks.record_reply("a", "u", "t", datetime.now(timezone.utc), {})

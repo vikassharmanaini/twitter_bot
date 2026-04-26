@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { GlassCard } from "../components/GlassCard";
 import { apiGet, apiSend } from "../lib/api";
 
 type ConfigResponse = {
@@ -9,6 +11,7 @@ type ConfigResponse = {
 
 export default function ConfigPage() {
   const qc = useQueryClient();
+  const reduce = useReducedMotion();
   const { data, isLoading, error } = useQuery({
     queryKey: ["config"],
     queryFn: () => apiGet<ConfigResponse>("/api/config"),
@@ -41,69 +44,87 @@ export default function ConfigPage() {
     (save.isError ? "Invalid JSON" : "");
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-6 md:space-y-8">
+      <motion.header
+        initial={reduce ? false : { opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+      >
         <div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Configuration</h1>
-          <p className="text-slate-400 mt-1 text-sm">
-            Edits <code className="text-indigo-300">config.yaml</code>. Secret fields load empty;
-            leave blank to keep existing values on save.
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-gradient md:text-4xl">
+            Configuration
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
+            Edits <code className="rounded-md bg-muted px-1.5 py-0.5 text-accent">config.yaml</code>.
+            Secret fields load masked; leave blank on save to keep existing values.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <label className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-border/60 bg-card/50 px-3 py-2 text-xs font-medium text-muted-foreground backdrop-blur-sm">
             <input
               type="checkbox"
               checked={allowIncomplete}
               onChange={(e) => setAllowIncomplete(e.target.checked)}
+              className="rounded border-border text-accent focus:ring-accent"
             />
-            Allow incomplete (onboarding)
+            Allow incomplete
           </label>
-          <button
+          <motion.button
             type="button"
             onClick={() => bootstrap.mutate()}
-            className="rounded-lg border border-slate-600 px-3 py-2 text-sm hover:bg-slate-800"
+            whileTap={reduce ? undefined : { scale: 0.97 }}
+            className="rounded-2xl border border-border/80 bg-muted/60 px-4 py-2.5 text-sm font-semibold text-foreground shadow-soft backdrop-blur-sm hover:border-accent/40"
           >
-            Bootstrap from example
-          </button>
-          <button
+            Bootstrap
+          </motion.button>
+          <motion.button
             type="button"
             disabled={save.isPending}
             onClick={() => save.mutate()}
-            className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-sm font-medium text-white"
+            whileTap={reduce ? undefined : { scale: 0.97 }}
+            className="rounded-2xl bg-gradient-to-r from-accent to-accent-secondary px-5 py-2.5 text-sm font-bold text-white shadow-glow disabled:opacity-50"
           >
             Save
-          </button>
+          </motion.button>
         </div>
-      </header>
+      </motion.header>
 
       {data?.secret_status && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-xs text-slate-400">
-          <span className="text-slate-500 font-medium uppercase tracking-wide">Secrets set</span>
-          <ul className="mt-2 flex flex-wrap gap-2">
+        <GlassCard delay={0} hover={false} className="!p-4">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Secrets configured
+          </span>
+          <ul className="mt-3 flex flex-wrap gap-2">
             {Object.entries(data.secret_status).map(([k, v]) => (
               <li
                 key={k}
-                className={`rounded-full px-2 py-0.5 ${v ? "bg-emerald-500/20 text-emerald-200" : "bg-slate-800 text-slate-500"}`}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  v
+                    ? "bg-success/20 text-success ring-1 ring-success/30"
+                    : "bg-muted text-muted-foreground"
+                }`}
               >
                 {k}
               </li>
             ))}
           </ul>
-        </div>
+        </GlassCard>
       )}
 
       {err && (
-        <div className="rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 text-sm text-rose-200">
+        <div className="rounded-3xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger backdrop-blur-md">
           {String(err)}
         </div>
       )}
 
       {isLoading ? (
-        <p className="text-slate-500">Loading…</p>
+        <div className="space-y-3">
+          <div className="h-8 w-1/3 animate-pulse rounded-2xl bg-muted" />
+          <div className="h-96 animate-pulse rounded-4xl bg-muted/80" />
+        </div>
       ) : (
         <textarea
-          className="w-full min-h-[480px] rounded-2xl border border-slate-800 bg-slate-950/80 p-4 font-mono text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className="min-h-[420px] w-full rounded-4xl border border-border/60 bg-card/70 p-4 font-mono text-sm text-card-foreground shadow-soft backdrop-blur-xl placeholder:text-muted-foreground focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 md:min-h-[520px] md:p-6"
           value={text}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}

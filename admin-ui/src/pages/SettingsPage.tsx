@@ -1,45 +1,60 @@
+import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
+import { GlassCard } from "../components/GlassCard";
 import { getToken, setToken } from "../lib/api";
 
 export default function SettingsPage() {
   const [t, setT] = useState(getToken());
+  const reduce = useReducedMotion();
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <header>
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Settings</h1>
-        <p className="text-slate-400 mt-1 text-sm">
-          Optional <code className="text-indigo-300">ADMIN_TOKEN</code>. Stored in browser localStorage
-          as Bearer token for API and WebSocket.
+    <div className="mx-auto max-w-lg space-y-6 md:space-y-8">
+      <motion.header
+        initial={reduce ? false : { opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="font-display text-3xl font-extrabold tracking-tight text-gradient md:text-4xl">
+          Settings
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground md:text-base">
+          Optional <code className="rounded bg-muted px-1 text-accent">ADMIN_TOKEN</code>. Stored in
+          localStorage and sent as Bearer for API and WebSocket.
         </p>
-      </header>
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 space-y-3">
-        <label className="block text-xs text-slate-500">Admin token</label>
+      </motion.header>
+
+      <GlassCard delay={0.06} hover={false} className="space-y-4 !p-6">
+        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Admin token
+        </label>
         <input
           type="password"
-          className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-sm"
+          className="w-full rounded-2xl border border-border/60 bg-canvas/80 px-4 py-3 text-sm focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/25"
           value={t}
           onChange={(e) => setT(e.target.value)}
-          placeholder="paste token if ADMIN_TOKEN is set on server"
+          placeholder="Paste token if server has ADMIN_TOKEN set"
         />
-        <button
-          type="button"
-          onClick={() => setToken(t)}
-          className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm text-white"
-        >
-          Save token
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setToken("");
-            setT("");
-          }}
-          className="ml-2 rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300"
-        >
-          Clear
-        </button>
-      </div>
+        <div className="flex flex-wrap gap-2">
+          <motion.button
+            type="button"
+            onClick={() => setToken(t)}
+            whileTap={reduce ? undefined : { scale: 0.97 }}
+            className="rounded-2xl bg-gradient-to-r from-accent to-accent-secondary px-5 py-2.5 text-sm font-bold text-white shadow-glow"
+          >
+            Save token
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={() => {
+              setToken("");
+              setT("");
+            }}
+            whileTap={reduce ? undefined : { scale: 0.97 }}
+            className="rounded-2xl border border-border/80 bg-muted/50 px-5 py-2.5 text-sm font-semibold text-muted-foreground"
+          >
+            Clear
+          </motion.button>
+        </div>
+      </GlassCard>
     </div>
   );
 }

@@ -1,6 +1,5 @@
-# Target accounts: username, category, priority (1=highest), enabled
 targets:
-  - username: "example_tech"
-    category: "Open Source"
-    priority: 2
-    enabled: true
+- username: example_tech
+  category: Open Source
+  priority: 2
+  enabled: false

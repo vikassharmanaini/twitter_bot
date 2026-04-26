@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { connectEvents } from "../lib/ws";
 
@@ -12,6 +13,7 @@ type LogEvt = {
 export default function ActivityPage() {
   const [lines, setLines] = useState<LogEvt[]>([]);
   const bottom = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     const ws = connectEvents((raw) => {
@@ -25,42 +27,61 @@ export default function ActivityPage() {
   }, []);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth" });
-  }, [lines]);
+    bottom.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+  }, [lines, reduce]);
 
   return (
-    <div className="space-y-4 h-[calc(100vh-8rem)] flex flex-col">
-      <header>
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Activity</h1>
-        <p className="text-slate-400 mt-1 text-sm">Live logs and status events (WebSocket).</p>
-      </header>
-      <div className="flex-1 overflow-auto rounded-2xl border border-slate-800 bg-slate-950/80 p-4 font-mono text-xs">
-        {lines.map((e, i) => {
-          const row = e as LogEvt & { data?: unknown };
-          if (row.type === "status") {
+    <div className="flex min-h-[70dvh] flex-col space-y-5 md:min-h-[calc(100dvh-8rem)]">
+      <motion.header
+        initial={reduce ? false : { opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="font-display text-3xl font-extrabold tracking-tight text-gradient md:text-4xl">
+          Activity
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground md:text-base">
+          Live logs and status events over WebSocket — tail stays pinned to the latest line.
+        </p>
+      </motion.header>
+
+      <motion.div
+        initial={reduce ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-4xl border border-border/60 bg-card/50 shadow-soft-lg backdrop-blur-xl"
+      >
+        <div className="flex-1 overflow-auto p-4 font-mono text-[11px] leading-relaxed sm:text-xs md:p-5">
+          {lines.map((e, i) => {
+            const row = e as LogEvt & { data?: unknown };
+            if (row.type === "status") {
+              return (
+                <div
+                  key={i}
+                  className="border-b border-border/40 py-2 text-warning"
+                >
+                  <span className="font-semibold text-accent-secondary">[status]</span>{" "}
+                  {JSON.stringify(row.data)}
+                </div>
+              );
+            }
             return (
-              <div key={i} className="border-b border-slate-800/50 py-1 text-amber-200/90">
-                [status] {JSON.stringify(row.data)}
+              <div
+                key={i}
+                className={`border-b border-border/30 py-2 transition-colors ${
+                  e.level === "ERROR" ? "text-danger bg-danger/5" : "text-card-foreground"
+                }`}
+              >
+                <span className="text-muted-foreground">{e.ts}</span>{" "}
+                <span className="font-semibold text-accent">{e.level}</span> {e.message}{" "}
+                {e.metadata !== undefined && (
+                  <span className="text-muted-foreground">{JSON.stringify(e.metadata)}</span>
+                )}
               </div>
             );
-          }
-          return (
-            <div
-              key={i}
-              className={`border-b border-slate-800/50 py-1 ${
-                e.level === "ERROR" ? "text-rose-300" : "text-slate-300"
-              }`}
-            >
-              <span className="text-slate-500">{e.ts}</span>{" "}
-              <span className="text-indigo-300">{e.level}</span> {e.message}{" "}
-              {e.metadata !== undefined && (
-                <span className="text-slate-500">{JSON.stringify(e.metadata)}</span>
-              )}
-            </div>
-          );
-        })}
-        <div ref={bottom} />
-      </div>
+          })}
+          <div ref={bottom} />
+        </div>
+      </motion.div>
     </div>
   );
 }

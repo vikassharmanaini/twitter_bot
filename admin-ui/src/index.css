@@ -2,10 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+@layer base {
+  :root {
+    color-scheme: light;
+    --canvas: 260 45% 97%;
+    --foreground: 240 22% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 22% 14%;
+    --muted: 260 20% 93%;
+    --muted-foreground: 240 10% 42%;
+    --border: 260 18% 88%;
+    --accent: 262 83% 58%;
+    --accent-secondary: 188 85% 42%;
+    --accent-tertiary: 330 82% 58%;
+    --success: 152 72% 40%;
+    --danger: 350 82% 52%;
+    --warning: 38 92% 50%;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --canvas: 240 32% 7%;
+    --foreground: 260 30% 96%;
+    --card: 240 28% 11%;
+    --card-foreground: 260 30% 96%;
+    --muted: 240 22% 16%;
+    --muted-foreground: 260 12% 62%;
+    --border: 240 18% 18%;
+    --accent: 265 88% 68%;
+    --accent-secondary: 188 78% 52%;
+    --accent-tertiary: 328 78% 62%;
+    --success: 152 70% 48%;
+    --danger: 350 78% 58%;
+    --warning: 38 88% 55%;
+  }
+
+  body {
+    @apply antialiased min-h-screen text-foreground bg-canvas;
+  }
 }
 
-body {
-  @apply bg-slate-950 text-slate-100 min-h-screen;
+@layer utilities {
+  .glass {
+    @apply bg-card/70 backdrop-blur-xl border border-border/60 shadow-soft;
+  }
+
+  .glass-strong {
+    @apply bg-card/85 backdrop-blur-2xl border border-border/70 shadow-soft-lg;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent via-accent-secondary to-accent-tertiary;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

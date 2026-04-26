@@ -259,3 +259,58 @@ class KnowledgeStore:
             "count": len(rows),
             "items": [dict(r) for r in rows],
         }
+
+    def daily_stats_series(self, limit: int = 21) -> list[dict[str, Any]]:
+        """Last N days of aggregate bot stats (ascending by date)."""
+        rows = self._conn.execute(
+            """SELECT date, replies_posted, accounts_checked, tokens_used, errors
+            FROM daily_stats ORDER BY date DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        out = [
+            {
+                "date": str(r[0]),
+                "replies_posted": int(r[1] or 0),
+                "accounts_checked": int(r[2] or 0),
+                "tokens_used": int(r[3] or 0),
+                "errors": int(r[4] or 0),
+            }
+            for r in rows
+        ]
+        out.reverse()
+        return out
+
+    def replies_by_account_since(self, since_iso: str) -> dict[str, int]:
+        rows = self._conn.execute(
+            """SELECT account, COUNT(*) FROM replied_tweets
+            WHERE posted_at >= ? GROUP BY account ORDER BY COUNT(*) DESC""",
+            (since_iso,),
+        ).fetchall()
+        return {str(r[0]): int(r[1]) for r in rows}
+
+    def list_replies_with_engagement(self, limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """SELECT tweet_id, account, reply_text, posted_at, score_breakdown
+            FROM replied_tweets ORDER BY posted_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        result: list[dict[str, Any]] = []
+        for r in rows:
+            bd: dict[str, Any] = {}
+            try:
+                bd = json.loads(r[4] or "{}")
+            except json.JSONDecodeError:
+                bd = {}
+            raw_eng = bd.get("engagement_received")
+            eng = raw_eng if isinstance(raw_eng, dict) else None
+            result.append(
+                {
+                    "tweet_id": r[0],
+                    "account": r[1],
+                    "reply_text": r[2],
+                    "posted_at": r[3],
+                    "engagement_score": bd.get("engagement_score") or bd.get("engagement_potential"),
+                    "engagement_received": eng,
+                }
+            )
+        return result

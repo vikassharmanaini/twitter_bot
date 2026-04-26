@@ -1,116 +1,193 @@
 # Twitter Dev-Bot
 
-An autonomous engagement assistant for **X (Twitter)**. It watches curated accounts, reads new posts, optionally gathers web context, and drafts short replies in a consistent developer voice. The design favors **human-paced** operation: safety filters, daily caps, scheduler jitter, and **dry-run** support before anything is posted.
+An autonomous **X (Twitter)** engagement assistant for developers. It monitors a curated list of accounts, reads new posts, optionally enriches context from the web, and drafts short replies that match a consistent technical persona. The project is built for **careful, human-paced** automation: configurable safety filters, daily caps, scheduler jitter between cycles, and a first-class **dry-run** path so you can validate behaviour before anything is published.
 
-The codebase is split into small modules—config, logging, X API client, OpenRouter LLM, search, SQLite knowledge store, scheduling, main loop—so you can test and replace pieces without rewriting the stack.
+Internally the code is **modular**: configuration loading, structured logging, the X API client, OpenRouter-backed LLM calls, pluggable search (DuckDuckGo or paid APIs), a SQLite **knowledge store**, scheduling, and the main loop are separate packages under `src/`. You can test and swap components without rewriting the whole stack.
 
-## Contents
+---
 
-- [Prerequisites](#prerequisites)
-- [Quick start](#quick-start)
-- [Project layout](#project-layout)
-- [CLI (`bot.py`)](#cli-botpy)
-- [Admin panel](#admin-panel)
-- [Helper script (`dev.sh`)](#helper-script-devsh)
-- [Tests](#tests)
-- [Troubleshooting](#troubleshooting)
-- [Compliance](#compliance)
+## Table of contents
+
+1. [Features](#features)
+2. [Architecture overview](#architecture-overview)
+3. [Prerequisites](#prerequisites)
+4. [Installation](#installation)
+5. [Configuration](#configuration)
+6. [Data files and persistence](#data-files-and-persistence)
+7. [Running the bot (CLI)](#running-the-bot-cli)
+8. [Local admin panel](#local-admin-panel)
+9. [Admin UI screenshots](#admin-ui-screenshots)
+10. [Admin HTTP API (summary)](#admin-http-api-summary)
+11. [Helper script: `dev.sh`](#helper-script-devsh)
+12. [Tests and quality](#tests-and-quality)
+13. [Troubleshooting](#troubleshooting)
+14. [Documentation map](#documentation-map)
+15. [Compliance](#compliance)
+
+---
+
+## Features
+
+- **Scheduler-driven loop** with interval + jitter; pause/resume via shared state (`data/bot_state.json`) for both CLI and admin UI.
+- **Dry-run** per cycle or via `bot.dry_run` in YAML.
+- **Targets** in `data/targets.yaml` (categories, priorities); CLI and admin CRUD.
+- **LLM comment generation** via [OpenRouter](https://openrouter.ai/) with primary/fallback models and token budgets.
+- **Web search** optional: DuckDuckGo (default), or Serper / Brave with API keys.
+- **Safety layer**: caps, spacing between posts, blacklist and tragedy-keyword guards, similarity to recent replies.
+- **SQLite store**: replied tweets, daily aggregates, topics, knowledge snippets; feeds reports and admin analytics.
+- **Maintenance commands**: knowledge refresh, performance analysis (metrics + LLM summary markdown), target suggestions, HTML report.
+- **Local admin stack**: FastAPI + React SPA—runtime control, masked config editing, live logs (WebSocket), charts, performance dashboard, in-app instructions.
+
+---
+
+## Architecture overview
+
+```text
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────────┐
+│  admin-ui/      │────▶│  run_admin.py    │────▶│  BotRuntimeService      │
+│  (Vite + React) │ REST│  FastAPI + WS    │     │  + MainLoop + Scheduler │
+└─────────────────┘     └──────────────────┘     └───────────┬─────────────┘
+                                                               │
+┌─────────────────┐     ┌──────────────────┐                  │
+│  bot.py (CLI)   │────▶│  src/            │◀─────────────────┘
+└─────────────────┘     │  config, twitter,│
+                        │  llm, main_loop, │
+                        │  knowledge_store │
+                        └──────────────────┘
+```
+
+- **`bot.py`** — long-running CLI entry (foreground loop).
+- **`run_admin.py`** — serves HTTP/WebSocket; optional background **single** bot thread through `BotRuntimeService` (do not run two loops against the same DB/state unintentionally).
+- **`src/admin/`** — admin-only code: routers, config repository, log broadcaster, runtime service.
+
+---
 
 ## Prerequisites
 
-- **Python 3.11+** (tested on 3.13)
-- An [X Developer Portal](https://developer.twitter.com/) app with **OAuth 1.0a user** credentials (posting) and a **Bearer token** (reads such as timelines and user lookup)
-- An [OpenRouter](https://openrouter.ai/) API key
-- Optional: [Serper](https://serper.dev/) or [Brave Search API](https://brave.com/search/api/) if you set `search.provider` to something other than `duckduckgo`
-- Optional (admin UI): **Node.js** 18+ for `admin-ui` (`npm install`, `npm run dev` / `npm run build`)
+| Requirement | Notes |
+|-------------|--------|
+| **Python 3.11+** | Tested on 3.13. |
+| **X Developer account** | App with **OAuth 1.0a user** context (post replies) and **Bearer token** (reads, e.g. timelines). |
+| **OpenRouter API key** | For chat completions; model IDs configured in YAML. |
+| **Optional: Serper / Brave** | If `search.provider` is not `duckduckgo`. |
+| **Node.js 18+** | Only if you build or develop `admin-ui/`. |
 
-## Quick start
+---
 
-1. Clone the repository and enter the directory.
+## Installation
 
-2. Create a virtual environment and install Python dependencies:
+1. **Clone** the repository and `cd` into the project root.
+
+2. **Create a virtual environment** and install dependencies:
 
    ```bash
    python3 -m venv .venv
-   source .venv/bin/activate   # Windows: .venv\Scripts\activate
+   source .venv/bin/activate
+   # Windows: .venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
-   Or use the helper: `bash dev.sh setup`
+   Equivalent: `bash dev.sh setup`
 
-3. Copy `config.example.yaml` to `config.yaml` and replace placeholders with real secrets. **Do not commit `config.yaml`.**
+3. **Configure the bot** (see [Configuration](#configuration)).
 
-4. Edit `data/targets.yaml` with the handles you want to monitor (see the example format).
-
-5. Confirm configuration loads:
+4. **Smoke-test** configuration:
 
    ```bash
    python bot.py bootstrap --config config.yaml
    ```
 
-6. Prefer **dry-run** until behaviour and safety settings look right (`python bot.py dry-run --config config.yaml`, or `bot.dry_run: true` in `config.yaml`).
+5. **Prefer dry-run** until you trust settings:
 
-## Project layout
+   ```bash
+   python bot.py dry-run --config config.yaml
+   ```
+
+---
+
+## Configuration
+
+Copy **`config.example.yaml`** → **`config.yaml`** and replace every placeholder. **Never commit `config.yaml`** or real keys.
+
+High-level sections:
+
+| Section | Purpose |
+|---------|---------|
+| **`openrouter`** | API key, primary/fallback models, per-run token cap. |
+| **`twitter`** | Bearer + OAuth 1.0a credentials for the same app. |
+| **`bot`** | Schedule interval/jitter, caps, accounts per cycle, tweet age window, `dry_run`, tone (`humor_level`), follower floor. |
+| **`search`** | `provider`, optional Serper/Brave keys, cache TTL. |
+| **`safety`** | Daily cap, minimum minutes between posts, blacklist, tragedy keywords, max similarity to recent replies. |
+| **`logging`** | Level, rotating file under `logs/`. |
+| **`paths`** | `targets_file`, `bot_state_file`, SQLite `knowledge_db`, cache paths (defaults under `data/`). |
+
+Edit **`data/targets.yaml`** for handles to watch (format in the example file).
+
+---
+
+## Data files and persistence
 
 | Path | Role |
 |------|------|
-| `bot.py` | Command-line interface |
-| `run_admin.py` | Local admin API + WebSocket (FastAPI / uvicorn) |
-| `src/` | Application library (config, Twitter, LLM, loop, store, …) |
-| `src/admin/` | Admin backend (REST, runtime service, config repo, log broadcast) |
-| `admin-ui/` | React + TypeScript + Vite + Tailwind SPA |
-| `data/` | Runtime data (e.g. `targets.yaml`, `bot_state.json`, SQLite) |
-| `prompts/` | Externalized LLM prompts |
-| `tests/` | `pytest` suite |
-| `docs/ADMIN_PANEL.md` | Admin architecture, env vars, security, troubleshooting |
+| `data/targets.yaml` | Curated target accounts (also editable via admin API). |
+| `data/bot_state.json` | Scheduler pause flag and last-run metadata (shared with CLI). |
+| `data/bot.db` (default) | SQLite: `replied_tweets`, `daily_stats`, `seen_topics`, `knowledge_snippets`. |
+| `logs/bot.log` | Rotating log file (if configured). |
 
-## CLI (`bot.py`)
+The knowledge DB powers **stats**, **reports**, admin **charts**, and **Performance** (engagement fields when stored in `score_breakdown`).
 
-All examples use `config.yaml`; pass a different file with `--config path/to.yaml`.
+---
+
+## Running the bot (CLI)
+
+All examples assume `config.yaml` in the current directory; override with `--config /path/to/file.yaml`.
 
 | Action | Command |
 |--------|---------|
-| Validate / warm up services | `python bot.py bootstrap --config config.yaml` |
-| Run scheduler loop (until pause or interrupt) | `python bot.py start --config config.yaml` |
+| Validate / warm up | `python bot.py bootstrap --config config.yaml` |
+| Run scheduler loop | `python bot.py start --config config.yaml` |
 | Single cycle, no post | `python bot.py dry-run --config config.yaml` |
-| Pause (writes `data/bot_state.json`) | `python bot.py stop --config config.yaml` |
+| Pause | `python bot.py stop --config config.yaml` |
 | Resume | `python bot.py resume --config config.yaml` |
 | Status | `python bot.py status --config config.yaml` |
 | Add target | `python bot.py add-target SomeHandle --category "AI" --config config.yaml` |
 | Disable target | `python bot.py remove-target SomeHandle --config config.yaml` |
-| Stats | `python bot.py stats --config config.yaml` |
-| Review | `python bot.py review --config config.yaml` |
-| Clear reply history (SQLite) | `python bot.py clear-history --config config.yaml` |
+| Stats (JSON) | `python bot.py stats --config config.yaml` |
+| Review recent replies | `python bot.py review --config config.yaml` |
+| Clear reply history | `python bot.py clear-history --config config.yaml` |
 | HTML report | `python bot.py report --out report.html --config config.yaml` |
-| Knowledge update | `python bot.py knowledge-update --config config.yaml` |
-| Performance analysis | `python bot.py performance --config config.yaml` |
+| Knowledge update job | `python bot.py knowledge-update --config config.yaml` |
+| Performance job (metrics + `performance_insights.md`) | `python bot.py performance --config config.yaml` |
 | Suggest targets | `python bot.py suggest-targets --config config.yaml` |
 
-Run `python bot.py --help` for the full command list and flags.
+Run **`python bot.py --help`** for the authoritative list of subcommands and flags.
 
-## Admin panel
+---
 
-The **local admin** stack gives you a browser UI and JSON API for runtime control (start/stop/pause/resume, dry-run), **masked** config editing, targets, maintenance jobs, and **live logs** over WebSocket. It binds to **`127.0.0.1:8080`** by default—not the public internet without extra hardening.
+## Local admin panel
 
-**API only:**
+The admin stack exposes a **browser UI** and **JSON API** on **`127.0.0.1:8080`** by default. It is intended for **local** use; exposing it on all interfaces without TLS, reverse proxy, and strong auth is unsafe.
+
+### Start the API
 
 ```bash
 source .venv/bin/activate
 python run_admin.py
 ```
 
-Open `http://127.0.0.1:8080/docs` for OpenAPI.
+- Interactive API docs: [http://127.0.0.1:8080/docs](http://127.0.0.1:8080/docs)
+- Environment: `ADMIN_BIND`, `ADMIN_PORT`, `ADMIN_RELOAD`, optional `ADMIN_TOKEN`, `BOT_CONFIG` (see [docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md)).
 
-**API + built SPA (single origin):**
+### Serve the built SPA from the same origin
 
 ```bash
 cd admin-ui && npm ci && npm run build && cd ..
 python run_admin.py
 ```
 
-Then open `http://127.0.0.1:8080/`.
+Open [http://127.0.0.1:8080/](http://127.0.0.1:8080/) — static assets load from `admin-ui/dist` when present.
 
-**Development** (Vite hot reload, proxy to the API):
+### Develop the UI (hot reload)
 
 ```bash
 # Terminal 1
@@ -120,26 +197,119 @@ python run_admin.py
 cd admin-ui && npm install && npm run dev
 ```
 
-Optional **`ADMIN_TOKEN`**: send `Authorization: Bearer <token>` on REST calls; for WebSocket use `?token=<token>` (or the same Bearer header if your client supports it). If the token is unset, anyone on the machine who can reach the bind address can use the panel—fine for solo local dev; set a token on shared machines.
+Vite dev server proxies `/api` and `/ws` to port **8080**.
 
-Full detail: **[docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md)**.
+### UI areas (React app)
 
-## Helper script (`dev.sh`)
+| Area | Purpose |
+|------|---------|
+| **Dashboard** | Runtime status, start/stop/pause/resume/dry-run, charts (replies / DB counts). |
+| **Configuration** | Edit config as JSON; masked secrets; bootstrap from example; optional incomplete validation. |
+| **Targets** | List/add/disable targets (YAML-backed). |
+| **Activity** | Live tail of redacted logs + status events (WebSocket). |
+| **Tools** | Trigger maintenance jobs (knowledge update, performance, suggest targets, report). |
+| **Performance** | Daily `daily_stats` charts, replies-by-account (7d), recent replies with engagement payloads when stored. |
+| **Instructions** | Step-by-step terminal-style setup guide inside the app. |
+| **Settings** | Optional `ADMIN_TOKEN` for browser (localStorage + Bearer). |
 
-`dev.sh` wraps common tasks from the repo root (uses `.venv` when present). If `./dev.sh` is not executable on your filesystem, run `bash dev.sh …`.
+A **floating “Guide”** button appears on every page **except** Instructions, linking back to the setup guide.
+
+### Admin UI screenshots
+
+PNG previews live in [`screenshots/`](screenshots/). They were taken from the **local admin** app (layout, theme light/dark, and chart data depend on your environment).
+
+#### Dashboard
+
+![Admin UI — Dashboard: status, charts, runtime actions](screenshots/01-dashboard.png)
+
+#### Configuration
+
+![Admin UI — Configuration: JSON editor and secret masks](screenshots/02-configuration.png)
+
+#### Targets
+
+![Admin UI — Targets: curated accounts table](screenshots/03-targets.png)
+
+#### Activity
+
+![Admin UI — Activity: live WebSocket log tail](screenshots/04-activity.png)
+
+#### Tools
+
+![Admin UI — Tools: maintenance jobs](screenshots/05-tools.png)
+
+#### Performance & engagement
+
+![Admin UI — Performance: daily stats and reply analytics](screenshots/06-performance.png)
+
+#### Instructions
+
+![Admin UI — Instructions: terminal-style setup guide](screenshots/07-instructions.png)
+
+#### Settings
+
+![Admin UI — Settings: optional admin token](screenshots/08-settings.png)
+
+### Authentication
+
+If **`ADMIN_TOKEN`** is set on the server, send **`Authorization: Bearer <token>`** on REST calls. For **`/ws/events`**, pass **`?token=<token>`** (or Bearer if your client supports it on WebSocket). If unset, any local process that can reach the bind address can call the API—acceptable for solo development on loopback; use a token on shared machines.
+
+---
+
+## Admin HTTP API (summary)
+
+Protected routes use the optional Bearer token; **`GET /api/health`** stays public.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Liveness. |
+| GET/PUT | `/api/config` | Masked GET; PUT saves full config (optional `?allow_incomplete=true`). |
+| POST | `/api/config/bootstrap` | Seed `config.yaml` from example if missing. |
+| GET | `/api/runtime/status` | Scheduler/runtime snapshot. |
+| POST | `/api/runtime/start`, `stop`, `pause`, `resume`, `dry-run` | Control background loop / one-shot dry-run. |
+| GET/POST | `/api/targets`, `/api/targets/{user}/disable` | Targets CRUD. |
+| GET | `/api/replies/recent` | Recent replies from SQLite. |
+| GET | `/api/stats/weekly` | Last-7-days reply rows (JSON). |
+| GET | `/api/stats/performance` | Daily series, replies-by-account (7d), recent rows + engagement fields. |
+| GET | `/api/db/summary` | Table row counts. |
+| POST | `/api/replies/clear-history` | Wipe `replied_tweets`. |
+| POST | `/api/jobs/knowledge-update`, `performance`, `suggest-targets`, `report` | Maintenance jobs. |
+| WS | `/ws/events` | Stream of log/status events (redacted). |
+
+Full detail and diagrams: **[docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md)**.
+
+---
+
+## Helper script: `dev.sh`
+
+From the repo root, **`dev.sh`** picks up **`.venv`** when it exists. On some volumes `./dev.sh` is not executable—use **`bash dev.sh`**.
+
+| Command | What it does |
+|---------|----------------|
+| `bash dev.sh help` | Print all subcommands. |
+| `bash dev.sh setup` | Create `.venv` if needed; `pip install -r requirements.txt`. |
+| `bash dev.sh test` | Remove stale `.coverage`; run **pytest** (extra args forwarded). |
+| `bash dev.sh bootstrap` | `bot.py bootstrap` with `CONFIG` (default `config.yaml`). |
+| `bash dev.sh start` | Start scheduler loop. |
+| `bash dev.sh dry-run` | One dry-run cycle. |
+| `bash dev.sh stop` / `resume` / `status` | Pause, resume, status. |
+| `bash dev.sh admin` | `python run_admin.py`. |
+| `bash dev.sh admin-build` | `npm ci` + `npm run build` in `admin-ui/`. |
+| `bash dev.sh admin-dev` | `npm install` + `npm run dev` in `admin-ui/`. |
+
+Override config path: `CONFIG=my.yaml bash dev.sh bootstrap`
+
+Example tests with filters:
 
 ```bash
-bash dev.sh help          # list commands
-bash dev.sh setup         # venv + pip install
-bash dev.sh test          # pytest (drops stale .coverage first)
 bash dev.sh test -- tests/test_admin_api.py -q
-bash dev.sh admin         # same as python run_admin.py
-bash dev.sh admin-build   # npm ci + build admin-ui
-bash dev.sh admin-dev     # npm install + vite dev
-CONFIG=config.yaml bash dev.sh dry-run
 ```
 
-## Tests
+---
+
+## Tests and quality
+
+The suite uses **pytest** with coverage on `src/` (minimum **80%** in `pytest.ini`).
 
 ```bash
 rm -f .coverage
@@ -148,18 +318,38 @@ pytest
 
 Or: `bash dev.sh test`
 
-External services are mocked. If `pytest-cov` fails with odd SQLite errors, remove `.coverage` and run again.
+External APIs are **mocked**. If coverage or SQLite errors mention a corrupt `.coverage` file, delete `.coverage` and run again.
+
+---
 
 ## Troubleshooting
 
-1. **`config validation failed` / missing keys** — Align with `config.example.yaml`. Placeholders like `REPLACE_ME` are rejected.
-2. **`403` or `401` from X** — Bearer and OAuth 1.0a keys must belong to the same app; confirm endpoint access (read timelines, write tweets).
-3. **`429` rate limits** — The client backs off; lower `accounts_per_cycle` or raise `schedule_interval_minutes`.
-4. **OpenRouter errors** — Check `openrouter.api_key` and model IDs; a fallback model is attempted when configured.
-5. **Search / DuckDuckGo** — Some networks block or throttle DDG; switch to `serper` or `brave` with keys, or rely on LLM-only replies when search is empty.
-6. **Admin UI 404 in “prod” mode** — Run `npm run build` in `admin-ui` so `admin-ui/dist` exists before `run_admin.py`.
-7. **401 on admin API** — Set the `Authorization` header to match `ADMIN_TOKEN`, or unset `ADMIN_TOKEN` for local-only use.
+| Symptom | What to check |
+|---------|----------------|
+| **`config validation failed`** | Compare with `config.example.yaml`; placeholders like `REPLACE_ME` are rejected. |
+| **X `401` / `403`** | Bearer and OAuth 1.0a keys must be from the same app; verify access to read timelines and post replies. |
+| **`429` rate limits** | Reduce `accounts_per_cycle` or increase `schedule_interval_minutes`; client retries with backoff. |
+| **OpenRouter errors** | `openrouter.api_key` and model IDs; fallback model is used when configured. |
+| **Search / DuckDuckGo failures** | Network blocking; switch provider or use LLM-only path when search returns nothing. |
+| **Admin UI 404 at `/`** | Run `npm run build` in `admin-ui` so `admin-ui/dist` exists. |
+| **Admin `401`** | Match `ADMIN_TOKEN` in **Settings** (or `Authorization` header), or unset token for local-only dev. |
+| **WebSocket disconnects** | With token enabled, pass `token` query on `/ws/events`. |
+| **Two bots fighting** | Avoid running **`bot.py start`** and the admin **Start loop** against the same `bot.db` / state unless intentional. |
+| **pytest / coverage SQLite noise** | `rm -f .coverage` |
+
+---
+
+## Documentation map
+
+| Document | Contents |
+|----------|-----------|
+| **This README** | End-to-end setup, CLI, admin, API sketch, `dev.sh`, troubleshooting. |
+| [docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md) | Admin architecture, env vars, security, WS, troubleshooting. |
+| [instruction.md](instruction.md) | Long-form project instructions (legacy / extended). |
+| [CHANGELOG.md](CHANGELOG.md) | Release-style change notes. |
+
+---
 
 ## Compliance
 
-Automating activity on X may violate platform rules or applicable law. Use only accounts and settings you are permitted to use, respect rate limits, and stay in **dry-run** until you trust behaviour and safety settings.
+Automating activity on **X** may violate [platform rules](https://developer.twitter.com/) or applicable law. Run this software only with accounts and credentials you are allowed to use, respect rate limits and safety settings, and rely on **dry-run** and manual review until behaviour is predictable and acceptable for your use case.
