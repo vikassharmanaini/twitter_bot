@@ -178,6 +178,41 @@ python run_admin.py
 - Interactive API docs: [http://127.0.0.1:8080/docs](http://127.0.0.1:8080/docs)
 - Environment: `ADMIN_BIND`, `ADMIN_PORT`, `ADMIN_RELOAD`, optional `ADMIN_TOKEN`, `BOT_CONFIG` (see [docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md)).
 
+### Different host or port
+
+The process started by `run_admin.py` uses:
+
+| Variable | Default | Role |
+|----------|---------|------|
+| **`ADMIN_BIND`** | `127.0.0.1` | Listen address (interface). |
+| **`ADMIN_PORT`** | `8080` | TCP port for HTTP and WebSocket. |
+
+**Examples**
+
+```bash
+# API + UI on port 9090 (same machine)
+ADMIN_PORT=9090 python run_admin.py
+```
+
+Open `http://127.0.0.1:9090/` (built SPA) and `http://127.0.0.1:9090/docs` (OpenAPI).
+
+```bash
+# Bind and port together
+ADMIN_BIND=127.0.0.1 ADMIN_PORT=9090 python run_admin.py
+```
+
+With the helper script:
+
+```bash
+ADMIN_PORT=9090 bash dev.sh admin
+```
+
+**Vite dev mode** (`cd admin-ui && npm run dev`, default UI port **5173**) forwards `/api` and `/ws` to **`http://127.0.0.1:8080`** in [`admin-ui/vite.config.ts`](admin-ui/vite.config.ts). If you change the API port, update `server.proxy["/api"].target` and `server.proxy["/ws"].target` to match (for example `http://127.0.0.1:9090` and `ws://127.0.0.1:9090`), then restart the dev server.
+
+**Built SPA** (`npm run build`): the browser uses the same origin as FastAPI, so only `ADMIN_PORT` / `ADMIN_BIND` need to match how you start `run_admin.py`.
+
+**Caution:** Setting `ADMIN_BIND=0.0.0.0` listens on all interfaces; treat that as a network exposure and add TLS, a reverse proxy, and `ADMIN_TOKEN` (or stronger auth) before using it outside a trusted LAN.
+
 ### Serve the built SPA from the same origin
 
 ```bash
