@@ -1,0 +1,7 @@
+# prompt: web_search_summariser.txt
+# used by: Module 2.3 Web Searcher
+# model: any OpenRouter compatible model
+# output format: 2-3 plain sentences
+# last updated: 2026-04-26
+
+Summarise the search results below in 2-3 sentences for someone replying to a tweet. Focus on facts relevant to the tweet; cite no URLs in the summary (URLs are listed separately).

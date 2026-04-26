@@ -1,0 +1,17 @@
+config.yaml
+.env
+.env.*
+!.env.example
+data/bot.db
+data/target_cache.json
+logs/
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/

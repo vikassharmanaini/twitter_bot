@@ -1,0 +1,50 @@
+# Copy to config.yaml and fill in real values. Never commit config.yaml.
+
+openrouter:
+  api_key: "sk-or-REPLACE_ME"
+  primary_model: "mistralai/mistral-7b-instruct:free"
+  fallback_model: "google/gemma-2-9b-it:free"
+  max_tokens_per_run: 5000
+
+twitter:
+  bearer_token: "REPLACE_ME"
+  api_key: "REPLACE_ME"
+  api_secret: "REPLACE_ME"
+  access_token: "REPLACE_ME"
+  access_token_secret: "REPLACE_ME"
+
+bot:
+  schedule_interval_minutes: 45
+  schedule_jitter_percent: 20
+  max_replies_per_day: 20
+  accounts_per_cycle: 3
+  min_tweet_age_minutes: 5
+  max_tweet_age_hours: 24
+  humor_level: "medium"
+  dry_run: false
+  min_target_followers: 10000
+
+search:
+  provider: "duckduckgo"
+  serper_api_key: ""
+  brave_api_key: ""
+  cache_ttl_minutes: 30
+
+safety:
+  daily_reply_cap: 20
+  min_minutes_between_posts: 20
+  blacklisted_words: []
+  max_similarity_to_recent: 0.70
+  tragedy_keywords: ["suicide", "self-harm", "killed", "death", "murder", "violence"]
+
+logging:
+  level: "INFO"
+  log_file: "logs/bot.log"
+  max_log_size_mb: 10
+  backup_count: 5
+
+paths:
+  targets_file: "data/targets.yaml"
+  bot_state_file: "data/bot_state.json"
+  knowledge_db: "data/bot.db"
+  target_cache_file: "data/target_cache.json"

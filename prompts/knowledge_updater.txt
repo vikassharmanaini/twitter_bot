@@ -1,0 +1,7 @@
+# prompt: knowledge_updater.txt
+# used by: Module 4.1 Knowledge Updater
+# model: any OpenRouter compatible model
+# output format: plain text paragraph
+# last updated: 2026-04-26
+
+Summarise the latest developments for the given topic based on the search snippets. Be concise and factual.

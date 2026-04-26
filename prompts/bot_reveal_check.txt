@@ -1,0 +1,7 @@
+# prompt: bot_reveal_check.txt
+# used by: Module 3.1 Safety Filter
+# model: any OpenRouter compatible model
+# output format: single word YES or NO
+# last updated: 2026-04-26
+
+Does this Twitter reply text reveal or strongly imply the author is an automated bot or AI? Answer only YES or NO.

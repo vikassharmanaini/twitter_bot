@@ -1,0 +1,7 @@
+# prompt: performance_analyser.txt
+# used by: Module 4.2 Performance Analyser
+# model: any OpenRouter compatible model
+# output format: markdown sections
+# last updated: 2026-04-26
+
+Analyse the following high-level reply performance data and list patterns that top replies share. Use short bullet points.

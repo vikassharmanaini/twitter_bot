@@ -1,0 +1,10 @@
+# prompt: comment_scorer.txt
+# used by: Module 2.5 Comment Selector
+# model: any OpenRouter compatible model
+# output format: JSON array of 3 objects
+# last updated: 2026-04-26
+
+You score reply candidates for a human-like developer account. For each candidate (same order as given), return JSON array of objects with:
+human_likeness (1-10), relevance (1-10), engagement_potential (1-10), risk_score (1-10, higher = riskier/offensive/misinterpretable).
+
+Return ONLY the JSON array, no markdown.
